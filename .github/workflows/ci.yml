@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, validation/exclude-scan-paths]
   pull_request:
 
 permissions:
@@ -13,6 +13,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pytest
+      - name: New tests fail on upstream and pass with the implementation
+        shell: bash
+        run: |
+          git restore --source=f5a45315afa12aad6280d5d08835f4371c32cee9 -- src
+          set +e
+          python -m pytest -q tests/test_core.py -k exclu
+          status=$?
+          set -e
+          git restore --source=HEAD -- src
+          test "$status" -eq 1
+          python -m pytest -q tests/test_core.py -k exclu
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
